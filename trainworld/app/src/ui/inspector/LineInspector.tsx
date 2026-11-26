@@ -504,11 +504,11 @@ function LineShape({ l, st, turned, opts, name, canEdit, onEdit, onClose }: {
  * as one: the bar past the last stop comes back up beside the stops to the first, with chevrons the way its
  * trains go round when it runs one way ("up" or "down" the return as drawn). `lanes`: some stops sit on a second lane
  * beside the bar (one-way branches), so every name starts past it. */
-function PlainStops({ looks, colour, loop, ring, ends, lanes, order, onDblClick, children }: { looks: boolean; colour: string; loop: boolean; ring?: "up" | "down" | "both"; ends?: [boolean, boolean]; lanes?: boolean; order: string; onDblClick: (e: MouseEvent) => void; children: ComponentChildren }) {
+function PlainStops({ looks, colour, loop, ring, ringStops, ends, lanes, order, onDblClick, children }: { looks: boolean; colour: string; loop: boolean; ring?: "up" | "down" | "both"; ringStops?: number; ends?: [boolean, boolean]; lanes?: boolean; order: string; onDblClick: (e: MouseEvent) => void; children: ComponentChildren }) {
   const ul = useRef<HTMLUListElement>(null);
   useTightTimes(ul);
   return (
-    <ul ref={ul} class={"stops" + (looks ? " traffic" : "") + (loop ? " loop" : "") + (ring ? " ring ring-" + ring : "") + (ends ? " turned" : "") + (lanes ? " lanes" : "") + order} style={{ "--c": colour }} onDblClick={onDblClick}>
+    <ul ref={ul} class={"stops" + (looks ? " traffic" : "") + (loop ? " loop" : "") + (ring ? " ring ring-" + ring + (ringStops === 2 ? " ring-two" : "") : "") + (ends ? " turned" : "") + (lanes ? " lanes" : "") + order} style={{ "--c": colour }} onDblClick={onDblClick}>
       {(loop || ends?.[0]) && <li class="loop-end top" aria-hidden="true" />}
       {children}
       {(loop || ends?.[1]) && <li class="loop-end bottom" aria-hidden="true" />}
@@ -1214,7 +1214,7 @@ function RailLineInspector({ id }: { id: string }) {
             adder={editingStops ? adder : undefined} onAdd={(node) => void stopEdit({ op: "stopPassed", line: l.num, station: node })}
             transfers={(i, drawn) => (turned ? transferLines(l, turned.rows[i].i, drawn, true) : transferLines(l, i, drawn))} />
         </div>
-      ) : <PlainStops looks={!!looks} colour={shown} loop={loopOnce && !turned} ring={loopOnce && !turned && st.loop === "circle" ? (st.oneWay ? (flip ? "down" : "up") : "both") : undefined}
+      ) : <PlainStops looks={!!looks} colour={shown} loop={loopOnce && !turned} ring={loopOnce && !turned && st.loop === "circle" ? (st.oneWay ? (flip ? "down" : "up") : "both") : undefined} ringStops={loopOnce && !turned && st.loop === "circle" ? nStops - 1 : undefined}
         ends={turned ? [turned.tipTop, turned.tipBottom] : endTips} lanes={!!pieces} order={orderClass} onDblClick={onListDblClick}>
         {turned && !pieces
           ? turned.rows.map((row) => <>{stopRow(row.i, undefined, undefined, row)}{afterStop(row.i, row.arc === "start" || row.arc === "mid")}</>)

@@ -1122,6 +1122,12 @@ rect.now { fill-opacity: .45; }
 .stops.ring::before { content: ""; position: absolute; left: -7px; top: 2px; bottom: 2px; width: 8px; border: 6px solid var(--c); border-radius: 13px;
   transform: translateX(var(--soft)); pointer-events: none; }
 .stops.ring li.loop-end::before, .stops.ring.traffic li.loop-end::before { display: none; }
+.stops.ring.ring-two { margin-left: 34px; }
+.stops.ring.ring-two::before { left: -27px; top: 4px; bottom: 4px; width: 34px; border: 3px solid var(--c); border-radius: 2px; }
+.stops.ring.ring-two > li:not(.loop-end) { min-height: 64px; padding-left: 60px; }
+.stops.ring.ring-two > li:not(.loop-end)::before { display: none; }
+.stops.ring.ring-two > li:nth-child(2)::after { left: 10px; }
+.stops.ring.ring-two > li:nth-child(3)::after { left: -24px; }
 .stops.ring-up::after, .stops.ring-down::after { content: ""; position: absolute; left: -7px; top: 22px; bottom: 22px; width: 6px; pointer-events: none;
   transform: translateX(var(--soft)); background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='36'%3E%3Cpath d='M1 20l2-2 2 2' fill='none' stroke='white' stroke-width='1.6'/%3E%3C/svg%3E") repeat-y center / 6px 36px; }
 .stops.ring-down::after { transform: translateX(var(--soft)) scaleY(-1); }

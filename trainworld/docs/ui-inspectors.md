@@ -578,17 +578,21 @@ The round trip split into running, dwell, turning and waiting,
   Cannot reverse off is allowed on a tram line and keeps the current route; it permits reversals but
   does not automatically redraw the line. The line view refreshes after a successful toggle even when
   the route, round trip and running times are unchanged.
-  The screenshots below use the same two-stop tram line in the London sandbox. On this route the
-  mode change also changes the return path: Cannot reverse gives an 18m06s round trip; Can reverse
-  gives 12m35s. A ring such as T3A can instead change mode without changing its route or timings.
+  The screenshots below use a duplicated tram line in the London sandbox, named **Loop demo**.
+  Its map is zoomed to the route, and the inspector's Stops section shows Mayfair and London
+  Charing Cross with the loop markers and the **Open the ring** action. **Both ways** is selected
+  for the loop's direction. The two tram reversal choices remain independent of that direction.
+  This route already has a valid looping path, so switching between **Can reverse** and
+  **Cannot reverse** leaves its 12m31s lap unchanged. The selected option still updates; this is
+  the setting-only case that exposed the stale inspector bug.
 
-  **Cannot reverse** (18m06s):
+  **Cannot reverse** (loop path and 12m31s lap unchanged):
 
-  ![London sandbox line with Cannot reverse selected and its 18m06s round trip](images/no-reverse-london-cannot-reverse.png)
+  ![Zoomed London Loop demo map with the enlarged Stops section, loop markers, Open the ring action, Both ways direction, and Cannot reverse selected](images/no-reverse-loop-demo-cannot-reverse.png)
 
-  **Can reverse** (12m35s):
+  **Can reverse** (same loop path and 12m31s lap):
 
-  ![London sandbox line with Can reverse selected and its 12m35s round trip](images/no-reverse-london-can-reverse.png)
+  ![Zoomed London Loop demo map with the enlarged Stops section, loop markers, Open the ring action, Both ways direction, and Can reverse selected](images/no-reverse-loop-demo-can-reverse.png)
 
   **Top speed** [T-2987]: a rail line's panel has, under the round trip block and above the line improvements, a
   "Top speed" row with the fastest its trains reach on the route (the most of `line_stretch_speeds`' reached
