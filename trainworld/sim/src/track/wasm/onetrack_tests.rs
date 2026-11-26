@@ -442,4 +442,6 @@ fn a_balloon_terminus_is_built_stop_by_stop() {
     assert_eq!(x.set_line_with_trains(l, &ins, 4, 2, 0, 30.0, 180.0, 0, 0, "L".into()), 0, "{}", x.issue_kinds());
     assert!(x.w.svc.lines[l as usize].running);
     assert!(x.w.net.path_reversals(x.w.net.line_path(l)).is_empty(), "round the loop to the pick-up platform");
+    assert_eq!(x.line_stop_runs(l), vec![3, 1, 3], "the set-down platform on the way out only");
+    assert_eq!(x.line_loop_options(l)[2], 2.0, "the last end carries on round the loop");
 }

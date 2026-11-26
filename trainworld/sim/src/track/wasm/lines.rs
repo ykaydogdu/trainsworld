@@ -550,6 +550,33 @@ impl TrackApi {
         self.stop_tiers_with(line, &mut memo)
     }
 
+    /// What the line panel offers for a rail line's ends and loops: `[close, unturn, ends, turn...]`. `close` 1
+    /// when the line is open and track takes it from its last stop on to its first (a click closes it into a
+    /// ring, T-3203); `unturn` the stop where its end is turned round a loop of track and can be opened
+    /// again (`open_loop`), else -1; `ends` the ends of an open line its trains carry on round from without
+    /// reversing (the way back leaves the last stop the way the way out arrived, or the way out leaves the
+    /// first the way the way back arrived: a loop of track there), 1 the first, 2 the last; then each stop
+    /// past which an end can be turned round a loop (`turn_end`). Empty if the line is not there or is a bus
+    /// or ferry.
+    pub fn line_loop_options(&self, line: u32) -> Vec<f64> {
+        let net = &self.w.net;
+        let Some(d) = net.line_data(line).filter(|d| d.bus.is_none() && d.ferry.is_none()) else { return vec![] };
+        if !net.line_ok(line) || d.stops.len() < 2 {
+            return vec![];
+        }
+        let mut memo = HopMemo::for_stop_scan(net, &d.stops);
+        let close = !closed(&d.stops) && d.stops.len() >= 3 && close_path(net, line, &mut memo).is_some();
+        let unturn = unturn_branch(net, line, &mut memo).map_or(-1.0, |n| n as f64);
+        let path = net.line_path(line);
+        let ends = match (closed(&d.stops), net.back_run(line)) {
+            (false, Some((_, b))) if !path.is_empty() && !b.is_empty() => (!net.turns_back(b[b.len() - 1], path[0])) as u8 | ((!net.turns_back(path[path.len() - 1], b[0])) as u8) << 1,
+            _ => 0,
+        };
+        let mut out = vec![close as u8 as f64, unturn, ends as f64];
+        out.extend(turns(net, line, &mut memo).into_iter().map(|t| t.branch as f64));
+        out
+    }
+
     pub(super) fn stop_tiers_with(&self, line: u32, memo: &mut HopMemo) -> Vec<f64> {
         let net = &self.w.net;
         if !net.line_ok(line) {
@@ -706,6 +733,18 @@ impl TrackApi {
     pub fn line_reversals(&self, line: u32) -> Vec<f64> {
         let Some(ls) = self.w.svc.lines.get(line as usize).filter(|l| l.ok) else { return vec![] };
         ls.runs[0].turn.iter().enumerate().filter(|x| *x.1).map(|x| x.0 as f64).collect()
+    }
+
+    /// Per stop of a rail line (its served stops, as `line_stop_s`), which runs stand there: 1 the way out
+    /// (run 0), 2 the way back (run 1), 3 both. A one-way station on the other run's track, or one whose
+    /// platform is on the other track, is the run's to pass. A loop run one way is all 1. The stop list
+    /// draws a line splitting into two one-way branches with stops of their own, and joining again, from it.
+    /// Empty for a line not running and for a bus or ferry.
+    pub fn line_stop_runs(&self, line: u32) -> Vec<u8> {
+        let Some(ls) = self.w.svc.lines.get(line as usize).filter(|l| l.ok && !l.is_bus()) else { return vec![] };
+        let n = ls.stops.len();
+        let stands = |r: usize, k: usize| ls.runs.get(r).is_some_and(|run| run.stop_idx.len() == n && !run.pass.get(k).copied().unwrap_or(false));
+        (0..n).map(|k| stands(0, k) as u8 | if ls.one_way { 0 } else { (stands(1, n - 1 - k) as u8) << 1 }).collect()
     }
 
     /// T-3122: the stations a line serves one way only, `[node, heading]` each: its trains stop

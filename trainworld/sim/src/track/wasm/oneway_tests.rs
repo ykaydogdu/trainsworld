@@ -367,3 +367,27 @@ fn a_line_ending_on_a_one_way_loop_carries_on_round_it() {
     assert_eq!(a.w.net.path_nodes(back[0]).1, j, "straight on to J");
     assert!(a.w.svc.lines[l as usize].running);
 }
+
+/// The stop list's split: a line over the one-way loop stands at Pa only on the way out and at Pb only
+/// on the way back, at S0 and T both ways.
+#[test]
+fn stop_runs_name_the_way_each_branch_stop_is_served() {
+    let mut a = api();
+    let [s0, _, pa, pb, _, t] = loop_past(&mut a);
+    let l = line(&mut a.w, &[s0, pa, pb, t], [8.0, 4.0, 2.0]);
+    assert_eq!(a.line_stop_runs(l), vec![3, 1, 2, 3]);
+}
+
+/// The line panel's ring offer: an open line round the triangle closes into a ring; two stops make
+/// none, a ring closes no further.
+#[test]
+fn loop_options_offer_the_ring_and_the_turns() {
+    let (mut x, [a, b, c], _) = triangle();
+    let two = crate::track::tests::line(&mut x.w, &[a, b], [8.0, 4.0, 2.0]);
+    let o = x.line_loop_options(two);
+    assert_eq!((o[0], o[1], o[2]), (0.0, -1.0, 0.0), "two stops make no ring, no end to open, both ends reverse");
+    let l = crate::track::tests::line(&mut x.w, &[a, b, c], [8.0, 4.0, 2.0]);
+    assert_eq!(x.line_loop_options(l)[0], 1.0, "C on round to A");
+    let r = crate::track::tests::line(&mut x.w, &[a, b, c, a], [8.0, 4.0, 2.0]);
+    assert_eq!(x.line_loop_options(r)[0], 0.0, "a ring closes no further");
+}
