@@ -851,7 +851,7 @@ fn build_run(net: &Network, l: u32, on: &Served, rev: bool, train_len: f64, dwel
     let mut run = Run { tram: net.line_tram(l), ..Default::default() };
     // T-3348: each run's own stop nodes, run 1's in its order
     let stops = if rev {
-        let (stops, segs) = net.back_run_of(on.stops, path, net.line_ones(l))?;
+        let (stops, segs) = net.back_run_of_nt(on.stops, path, net.line_ones(l), net.line_no_turn_of(l))?;
         run.segs = segs;
         stops
     } else {
@@ -897,7 +897,11 @@ fn build_run(net: &Network, l: u32, on: &Served, rev: bool, train_len: f64, dwel
     run.stop_idx = at.into_iter().map(|k| k as u32).collect();
     run.away = stopped.iter().enumerate().filter(|x| !*x.1).map(|(j, _)| (j as u32, stops[j])).collect();
     if stops.iter().any(|&s| net.one_side(s).is_some()) || !run.away.is_empty() {
-        run.pass = net.run_passes(&run.segs, &run.stop_idx, on.circle);
+        // an open line's train comes to a run's first stop at the end of the other run, on that track
+        let came = if on.stops.first() == on.stops.last() { None } else if rev { path.last().copied() } else {
+            net.back_run_of_nt(on.stops, path, net.line_ones(l), net.line_no_turn_of(l)).and_then(|b| b.1.last().copied())
+        };
+        run.pass = net.run_passes_from(&run.segs, &run.stop_idx, on.circle, came);
         for &(j, _) in &run.away {
             run.pass[j as usize] = true;
         }

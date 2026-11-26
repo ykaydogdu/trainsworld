@@ -1314,7 +1314,7 @@ pub(super) fn new_line(w: &mut TrackWorld, stops: &[u32], trains: [u32; 3]) -> u
 /// Line `id`'s data along `stops`, at the game's starting rate.
 pub(super) fn line_data(w: &TrackWorld, stops: &[u32], id: u32, trains: Option<[u32; 3]>) -> LineData {
     let path = w.net.route(stops, &[]).expect("no route");
-    LineData { rows: 0, x: Default::default(), symbol: String::new(), trains, auto: None, name: format!("L{id}"), colour: 0, stops: stops.to_vec(), path, tph: [6.0, 3.0, 1.0], dwell_s: 30.0, turnaround_s: 180.0, cars: 0, fast: false, bus: None, ferry: None, group: 0, group_name: String::new(), group_look: Default::default(), outer: vec![], day: 0, hand: false, one_way: false, limit: 0, twin: Default::default(), weekend: Default::default(), ones: vec![], only: vec![], fare_dist: false }
+    LineData { rows: 0, x: Default::default(), symbol: String::new(), trains, auto: None, name: format!("L{id}"), colour: 0, stops: stops.to_vec(), path, tph: [6.0, 3.0, 1.0], dwell_s: 30.0, turnaround_s: 180.0, cars: 0, fast: false, bus: None, ferry: None, group: 0, group_name: String::new(), group_look: Default::default(), outer: vec![], day: 0, hand: false, one_way: false, no_turn: false, limit: 0, twin: Default::default(), weekend: Default::default(), ones: vec![], only: vec![], fare_dist: false }
 }
 
 #[test]
@@ -2222,6 +2222,29 @@ pub fn balloon_fixture() -> (TrackWorld, [u32; 4]) {
     }
     terminals_at_dead_ends(&mut w);
     (w, [a, m, j, k])
+}
+
+/// `balloon_fixture` with a loop at the west end too: K1 on it past J1, stem J1 - A - M - J. A line
+/// round both loops never turns back.
+pub fn dumbbell_fixture() -> (TrackWorld, [u32; 6]) {
+    let mut w = world();
+    let k1 = node(&mut w, -8000.0, 1500.0, 0);
+    let j1 = node(&mut w, -6000.0, 0.0, 0);
+    let a = node(&mut w, -3000.0, 0.0, 0);
+    let m = node(&mut w, 0.0, 0.0, 0);
+    let j = node(&mut w, 3000.0, 0.0, 0);
+    let k = node(&mut w, 5000.0, 1500.0, 0);
+    edge(&mut w, j1, a, &[], 0).unwrap();
+    edge(&mut w, a, m, &[], 0).unwrap();
+    edge(&mut w, m, j, &[], 0).unwrap();
+    edge(&mut w, j, k, &[(3400.0, 0.0)], 0).unwrap();
+    edge(&mut w, k, j, &[(6600.0, 3000.0), (8000.0, -1500.0), (3800.0, 0.0)], 0).unwrap();
+    edge(&mut w, j1, k1, &[(-6400.0, 0.0)], 0).unwrap();
+    edge(&mut w, k1, j1, &[(-9600.0, 3000.0), (-11000.0, -1500.0), (-6800.0, 0.0)], 0).unwrap();
+    for n in [k1, a, m, k] {
+        station(&mut w, n, 200);
+    }
+    (w, [k1, j1, a, m, j, k])
 }
 
 #[test]

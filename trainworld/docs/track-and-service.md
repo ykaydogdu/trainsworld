@@ -307,7 +307,7 @@ Full design, numbers and sources: `notes/T-008.md`.
   never refused. A line's return run is its path backward, so a line that goes both ways over a
   one-way piece takes **its own way back**: `Network::back_path_of` routes the stops in reverse order
   when the reversed path runs against a one-way piece, and `build_run` builds the return run from it (a
-  loop that runs one way has no return run and needs none). A line with no way back is broken
+  loop that runs one way has no return run and needs none). A stop at a one-track station on double track is matched to the pass that arrives on its platform's track (`Network::match_platforms`), so a balloon terminus can drop off at one platform and pick up at the other. A one-track station never goes where single track meets double (`one_fits`: the same tracks both sides). An open line's last stop at such a platform is routed to arrive on its track round a loop past it, never turning back on the way (`route_hops_plain_from`, `route_plain_memo`), and a click never puts a stop where an open line would end on the wrong track (`best_slot`): a balloon terminus is built a click at a time, set-down platform then pick-up. A way out that comes round a loop to its last stop (passing it first) has its way back carried on round from there, not run backward round the loop (`back_run_of_nt`), and the platform check takes the track a train really arrives on at a run's first stop, the other run's last (`run_passes_from`), so such an end stands on the pick-up platform both ways. A line with no way back is broken
   (`check_line`), and `Network::back_lines` has every line with such a return checked after any edit, because
   its way back is not on `lines_on_edge`; it is rebuilt where a rebuild would give its runs another way back or
   other platforms, or the edit touched track they run on (T-4249, `TrackWorld::back_moved`). Setting the flag also moves the **forward** path of
@@ -320,6 +320,18 @@ Full design, numbers and sources: `notes/T-008.md`.
   (section = `edge_section_s` + v / `SIGNAL_BRAKE`, per direction, `capacity::directed`), not shared.
   Platforms and stations on it are unchanged. The map draws chevrons along it (`oneWayTrackRuns`, one every 300 m of distance along a connected run),
   the hover says "One way".
+- **Trams that cannot reverse** (`LineData::no_turn`, `Network::line_no_turn_of`; the line inspector's "Cannot
+  reverse", `TrackApi::set_line_no_turn`): trams with a cab at one end only cannot turn round at a stop, so they turn round on a loop of
+  track. A line with it routes with `find_path_nt` / `route_hops_from`: no leaving a stop on the side the
+  train arrived at, no turning back at a bare track end, so the way round is a loop. `check_route`
+  refuses a path that turns back partway (`path_reversals`), and the way back (`back_path_of_nt`) leaves
+  the last stop on the side the way out arrived at. A line's ends turn on loops through the existing
+  "turn this end into a loop" tool (`turn_end`, either end). An end that still turns back (an open line's,
+  where its way back starts or the way out starts again, or a balloon's first stop) is refused `NoTurnEnd`,
+  and the way back is never the way out run backward. Turning it on re-routes the line only when its route
+  turns partway (a hand-drawn route that does not is kept), and is refused (`LinePath`) when no route avoids
+  a turn. The switch shows on tram lines.
+  Saved in the `LNT1` block (save level 42); a line without it reverses as before. Rail lines only.
 - **Quad track** (T-255): the other setting. The stroke draws the double track as usual and an
   express double track beside it, 8 m to the left of the drawn direction (centre to centre, so
   4 m between every pair of neighbouring tracks), from the same start node to the same end node:

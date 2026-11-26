@@ -244,9 +244,10 @@ impl Network {
                 _ => return Err(Why::Stop(k)),
             }
         }
-        let path = self.route_hops(&twin, &[]).map_err(Why::Hop)?;
+        let no_turn = self.line_no_turn_of(l);
+        let path = self.route_hops_from_t(&twin, &[], self.stops_tram(&twin), no_turn, None).map_err(Why::Hop)?;
         let once = self.line_runs_once(l);
-        if self.check_route(l, &twin, &path, once).is_err() {
+        if self.check_route(l, &twin, &path, once, no_turn).is_err() {
             return Err(Why::Route);
         }
         if self.stop_reversals(&path).len() != self.stop_reversals(self.line_path(l)).len() {

@@ -52,7 +52,7 @@ impl TrackApi {
         let Some((stops, path)) = edited_stops(&self.w.net, stops, false, &[]) else {
             return self.no_route(id, stops);
         };
-        let mut d = LineData { rows: 0, x: Default::default(), symbol: String::new(), trains: Some([high, medium, low]), auto: None, name, colour, tph: if stops.len() < 2 { [0.0; 3] } else { [6.0, 3.0, 1.0] }, stops, path, dwell_s, turnaround_s, cars, fast: false, bus: None, ferry: None, group: 0, group_name: String::new(), group_look: Default::default(), outer: vec![], day: 0, hand: false, one_way: false, limit: 0, twin: Default::default(), weekend: Default::default(), ones: vec![], only: vec![], fare_dist: false };
+        let mut d = LineData { rows: 0, x: Default::default(), symbol: String::new(), trains: Some([high, medium, low]), auto: None, name, colour, tph: if stops.len() < 2 { [0.0; 3] } else { [6.0, 3.0, 1.0] }, stops, path, dwell_s, turnaround_s, cars, fast: false, bus: None, ferry: None, group: 0, group_name: String::new(), group_look: Default::default(), outer: vec![], day: 0, hand: false, one_way: false, no_turn: false, limit: 0, twin: Default::default(), weekend: Default::default(), ones: vec![], only: vec![], fare_dist: false };
         // T-3542: a line of four or five rows runs its high count at midday and in the afternoon too
         d.x = Extra::of_high(&d);
         self.run(Op::Line { id, data: Some(d) })
@@ -645,6 +645,29 @@ impl TrackApi {
     pub fn set_line_one_way(&mut self, id: u32, on: bool) -> u32 {
         let Some(mut d) = self.w.net.line_data(id) else { return self.refuse(Issue::NoSuchLine { line: id }) };
         d.one_way = on;
+        self.run(Op::Line { id, data: Some(d) })
+    }
+    /// Whether the trams of a line cannot reverse, so it turns round on loops.
+    pub fn line_no_turn(&self, line: u32) -> bool {
+        self.w.net.line_no_turn_of(line)
+    }
+    /// Set whether a rail line's trams cannot reverse. Turning it on moves the line's route to one that
+    /// never turns partway; a line with none stays as it was and the edit is refused (`LinePath`), and one
+    /// that would still turn back at an end (no loop of track there) is refused `NoTurnEnd`.
+    /// One edit, one undo.
+    pub fn set_line_no_turn(&mut self, id: u32, on: bool) -> u32 {
+        let Some(mut d) = self.w.net.line_data(id) else { return self.refuse(Issue::NoSuchLine { line: id }) };
+        if d.bus.is_some() || d.ferry.is_some() {
+            return self.refuse(Issue::NoSuchLine { line: id });
+        }
+        d.no_turn = on;
+        // a route that already never turns partway (one drawn by hand, say) is kept
+        if on && !self.w.net.path_reversals(&d.path).is_empty() {
+            match self.w.net.route_hops_from_t(&d.stops, &d.ones, self.w.net.stops_tram(&d.stops), true, None) {
+                Ok(p) => d.path = p,
+                Err(_) => return self.refuse(Issue::LinePath { line: id }),
+            }
+        }
         self.run(Op::Line { id, data: Some(d) })
     }
     /// T-2987: a rail line's speed limit, km/h; 0 for none.

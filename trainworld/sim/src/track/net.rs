@@ -307,6 +307,9 @@ pub struct LineData {
     /// alone); otherwise both ways. Kept on an open line, which ignores it, so it carries over a
     /// close. A new bus or ferry line starts one way, a train line both ways.
     pub one_way: bool,
+    /// Trams of the line cannot reverse (trams with a cab at one end only): no route turns back partway, at a
+    /// stop or a bare track end, so a line turns round on a loop. Rail lines only.
+    pub no_turn: bool,
     /// T-2987: the player's speed limit for the line's trains, km/h; 0 none. Applies to rail lines only.
     pub limit: u16,
     /// T-3333: the line runs on both pairs of quad track (`Parent`), or is the hidden twin that runs
@@ -552,6 +555,8 @@ pub enum Issue {
     PortStop { line: u32 },
     /// A line's return run has no track to come back on: one-way track runs against it (T-3094).
     NoWayBack { line: u32 },
+    /// A line whose trams cannot reverse (`no_turn`) turns back at an end: it needs a loop of track there.
+    NoTurnEnd { line: u32 },
     /// One-way single track (T-3094) that a line cannot go round: it has no other way between its stations.
     OneWayNoWay { line: u32 },
     /// T-3332: a line stops at a one-track station only on runs that pass it on the other track, or
@@ -735,6 +740,7 @@ pub struct Network {
     /// T-4013: per line, its boarding-only and getting-off-only stops (`LineData::only`).
     pub line_only: Vec<Vec<(u32, u8)>>,
     pub line_one_way: Vec<bool>,
+    pub line_no_turn: Vec<bool>,
     pub line_limit: Vec<u16>,
     /// T-3758: `LineData::fare_dist`.
     pub line_fare_dist: Vec<bool>,

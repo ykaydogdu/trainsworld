@@ -314,3 +314,56 @@ fn deleting_termini_past_one_way_stations_keeps_capacity_whole() {
     assert_eq!(a.w.net.line_data(l).unwrap().stops, vec![s0, pa, pb, t]);
     assert!(a.w.svc.lines[l as usize].running);
 }
+
+/// Trams that cannot reverse go round loops: no route turns back partway, a line turning back at an
+/// end with no loop is refused, one round a loop at each end runs, and the flag is saved.
+#[test]
+fn trams_that_cannot_reverse_turn_round_on_the_loop() {
+    use crate::track::tests::{balloon_fixture, dumbbell_fixture};
+    let (w, [a, m, _, k]) = balloon_fixture();
+    let stops = [a, m, k, m, a];
+    let path = w.net.route_hops_from(&stops, true, None).expect("round the loop");
+    assert!(w.net.path_reversals(&path).is_empty(), "no turn back partway");
+    // a stub with no loop has no way for them
+    assert!(w.net.route_hops_from(&[m, a, m], true, None).is_err(), "no turning round at the dead end A");
+    assert!(w.net.route_hops_from(&[m, a, m], false, None).is_ok(), "trams that can, do");
+    // the balloon still turns back at A, its first stop, so the setting is refused there
+    let mut a1 = api();
+    a1.w = w;
+    let l = crate::track::tests::line(&mut a1.w, &stops, [8.0, 4.0, 2.0]);
+    assert_ne!(a1.set_line_no_turn(l, true), 0);
+    assert_eq!(a1.issue_kinds(), "NoTurnEnd");
+    assert!(!a1.line_no_turn(l));
+    // an open line out to M turns back at A on the way out again
+    let o = crate::track::tests::line(&mut a1.w, &[a, m], [8.0, 4.0, 2.0]);
+    assert_ne!(a1.set_line_no_turn(o, true), 0);
+    assert_eq!(a1.issue_kinds(), "NoTurnEnd");
+
+    // round a loop at each end it runs, and the flag is part of the line and survives a save
+    let (w, [k1, _, a, m, _, k]) = dumbbell_fixture();
+    let mut a2 = api();
+    a2.w = w;
+    let l = crate::track::tests::line(&mut a2.w, &[k1, a, m, k, m, a, k1], [8.0, 4.0, 2.0]);
+    assert_eq!(a2.set_line_no_turn(l, true), 0, "{}", a2.issues());
+    assert!(a2.line_no_turn(l));
+    assert!(a2.w.net.path_reversals(a2.w.net.line_path(l)).is_empty());
+    assert_eq!(a2.w.net.check_line(l).map(|_| ()), Ok(()));
+    let back = crate::track::save::decode(&crate::track::save::encode(&a2.w.net)).unwrap();
+    assert!(back.line_no_turn_of(l));
+}
+
+/// A line ending on a one-way loop with a stop on each leg (out past Pa to K, back past Pb): it stops at
+/// Pa, then Pb, and its way back carries on round the loop from Pb, never turning there.
+#[test]
+fn a_line_ending_on_a_one_way_loop_carries_on_round_it() {
+    let mut a = api();
+    let [s0, j, pa, pb, ..] = loop_past(&mut a);
+    let l = line(&mut a.w, &[s0, pa, pb], [8.0, 4.0, 2.0]);
+    assert_eq!(a.w.net.check_line(l).map(|_| ()), Ok(()));
+    let path = a.w.net.line_path(l).to_vec();
+    let (rs, back) = a.w.net.back_run(l).expect("a way back");
+    assert_eq!((rs[0], rs[rs.len() - 1]), (pb, s0));
+    assert!(!a.w.net.turns_back(path[path.len() - 1], back[0]), "no turn at Pb");
+    assert_eq!(a.w.net.path_nodes(back[0]).1, j, "straight on to J");
+    assert!(a.w.svc.lines[l as usize].running);
+}

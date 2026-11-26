@@ -112,7 +112,7 @@ impl TrackApi {
         hit.sort_unstable();
         hit.dedup();
         let lines: Vec<(u32, Vec<u32>, Vec<u32>, bool, Vec<(u32, u8)>)> = hit.iter().map(|&l| (l, net.line_stops(l).to_vec(), net.line_path(l).to_vec(), net.line_runs_once(l), net.line_ones(l).to_vec())).collect();
-        let was: Vec<Option<Vec<u32>>> = lines.iter().map(|x| net.back_path_of(&x.1, &x.2, &x.4)).collect();
+        let was: Vec<Option<Vec<u32>>> = lines.iter().map(|x| net.back_path_of_nt(&x.1, &x.2, &x.4, net.line_no_turn_of(x.0))).collect();
         // T-3647: a line already broken loses nothing here, so it never refuses the edit (it was refusing every
         // switch in the game, the one that would mend it included); it runs again if the edit gives it a way
         let broken: Vec<bool> = lines.iter().map(|x| net.line_broken.get(x.0 as usize).copied().unwrap_or(false)).collect();
@@ -120,15 +120,16 @@ impl TrackApi {
         let net = &self.w.net;
         let mut rows = vec![];
         for (k, (l, stops, path, once, ones)) in lines.into_iter().enumerate() {
+            let nt = net.line_no_turn_of(l);
             let fwd_ok = path.iter().all(|&p| net.dir_ok(p));
-            let new = if fwd_ok { Some(path.clone()) } else { net.route_hops(&stops, &ones).ok() };
+            let new = if fwd_ok { Some(path.clone()) } else { net.route_hops_from_t(&stops, &ones, net.stops_tram(&stops), nt, None).ok() };
             // (a loop the edit leaves no way back round runs one way, T-3835)
-            let new = new.filter(|np| once || net.runs_once(l, &stops, np) || net.back_path_of(&stops, np, &ones).is_some());
+            let new = new.filter(|np| once || net.runs_once(l, &stops, np) || net.back_path_of_nt(&stops, np, &ones, nt).is_some());
             if new.is_none() && broken[k] {
                 continue;
             }
             let moved = match &new {
-                Some(np) => *np != path || (!once && net.back_path_of(&stops, np, &ones) != was[k]),
+                Some(np) => *np != path || (!once && net.back_path_of_nt(&stops, np, &ones, nt) != was[k]),
                 None => true,
             };
             if moved {

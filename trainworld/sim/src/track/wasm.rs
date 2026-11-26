@@ -1227,6 +1227,14 @@ fn route_plain_memo(net: &Network, stops: &[u32], memo: &mut HopMemo, tram: bool
     for (k, w) in stops.windows(2).enumerate() {
         let want = if closes && k + 2 == stops.len() { net.carry_on_side(&path) } else { None };
         let key = |want| (w[0], w[1], side, want, tram);
+        // an open line's last stop at a one-track platform on double track is arrived at on its track (as
+        // `Network::route_hops_plain_from`)
+        let end = if !closes && k + 2 == stops.len() { net.one_side(w[1]) } else { None };
+        if let Some((p, s)) = end.and_then(|sd| net.find_path_nt(w[0], w[1], side, Some(sd), tram, true)) {
+            path.extend(p);
+            side = Some(s);
+            continue;
+        }
         let hop = if want.is_some() {
             memo.hop(net, key(want));
             memo.hop(net, key(None));
@@ -1534,8 +1542,13 @@ fn best_slot(net: &Network, old: &[u32], station: u32, memo: &mut HopMemo, ones:
             tries.push(std::iter::once(station).chain(old.iter().copied()).chain(std::iter::once(station)).collect());
         }
     }
+    // an open line ending at a one-track platform on double track it would stand at only on the wrong track is
+    // no slot (a balloon terminus's pick-up platform goes after its set-down one, not before the line's start)
+    let wrong_end = |stops: &[u32], path: &[u32]| {
+        !closed(stops) && [stops[0], stops[stops.len() - 1]].iter().any(|&s| net.one_side(s).is_some()) && net.check_route(u32::MAX, stops, path, false, false).is_err()
+    };
     for stops in tries {
-        if let Some(path) = route_memo(net, &stops, memo, ones) {
+        if let Some(path) = route_memo(net, &stops, memo, ones).filter(|p| !wrong_end(&stops, p)) {
             let len = order_cost(net, &path);
             let wins = if len < best_len - 0.001 {
                 best_spread = None;

@@ -104,6 +104,7 @@ impl Network {
             line_ones: vec![],
             line_only: vec![],
             line_one_way: vec![],
+            line_no_turn: vec![],
             line_limit: vec![],
             line_fare_dist: vec![],
             line_weekend: vec![],
@@ -490,6 +491,7 @@ impl Network {
         self.line_ones.push(vec![]);
         self.line_only.push(vec![]);
         self.line_one_way.push(false);
+        self.line_no_turn.push(false);
         self.line_limit.push(0);
         self.line_fare_dist.push(false);
         self.line_weekend.push(Weekend::default());
@@ -569,6 +571,7 @@ impl Network {
                 ones: self.line_ones[i].clone(),
                 only: self.line_only[i].clone(),
                 one_way: self.line_one_way[i],
+                no_turn: self.line_no_turn[i],
                 limit: self.line_limit[i],
                 twin: self.line_twin[i],
                 weekend: self.line_weekend[i],
@@ -831,6 +834,10 @@ impl Network {
     }
     pub fn line_stops(&self, l: u32) -> &[u32] {
         self.stops.get(self.line_stops[l as usize])
+    }
+    /// Whether the trams of line `l` cannot reverse.
+    pub fn line_no_turn_of(&self, l: u32) -> bool {
+        self.line_no_turn.get(l as usize).copied().unwrap_or(false)
     }
     /// T-3711: a line's one-way stops the player set (`LineData::ones`).
     pub fn line_ones(&self, l: u32) -> &[(u32, u8)] {

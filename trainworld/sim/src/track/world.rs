@@ -2556,7 +2556,7 @@ impl TrackWorld {
             return true;
         }
         // (a loop with no way back runs its way out again, `build_on`)
-        let (back_stops, back) = match net.back_run_of(stops, path, ones) {
+        let (back_stops, back) = match net.back_run_of_nt(stops, path, ones, net.line_no_turn_of(l)) {
             Some(b) => b,
             None if ls.one_way => (fwd, ls.runs[0].segs.clone()),
             None => return true,
@@ -2769,7 +2769,8 @@ impl TrackWorld {
             let stops = net.line_stops(l);
             let once = net.line_runs_once(l);
             let ones = net.line_ones(l);
-            let path = net.route_hops(stops, ones).ok().filter(|p| once || net.back_path_of(stops, p, ones).is_some());
+            let nt = net.line_no_turn_of(l);
+            let path = net.route_hops_from_t(stops, ones, net.stops_tram(stops), nt, None).ok().filter(|p| once || net.back_path_of_nt(stops, p, ones, nt).is_some());
             match (path, net.line_data(l)) {
                 (Some(path), Some(mut d)) => {
                     d.path = path;
@@ -2832,7 +2833,8 @@ impl TrackWorld {
             let once = net.line_runs_once(l);
             let turns = net.path_reversals(net.line_path(l)).len();
             let ones = net.line_ones(l);
-            let Some(path) = net.route_hops(stops, ones).ok().filter(|p| (once || net.back_path_of(stops, p, ones).is_some()) && (!turned.contains(&l) || net.path_reversals(p).len() <= turns)) else { continue };
+            let nt = net.line_no_turn_of(l);
+            let Some(path) = net.route_hops_from_t(stops, ones, net.stops_tram(stops), nt, None).ok().filter(|p| (once || net.back_path_of_nt(stops, p, ones, nt).is_some()) && (!turned.contains(&l) || net.path_reversals(p).len() <= turns)) else { continue };
             if let Some(mut d) = net.line_data(l).filter(|d| d.path != path) {
                 d.path = path;
                 ops.push(Op::Line { id: l, data: Some(d) });

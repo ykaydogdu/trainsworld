@@ -52,12 +52,17 @@ impl Network {
     /// to turn there comes in on (the one it leaves by, the other way), or for a circle the one it
     /// comes round on.
     pub fn run_passes(&self, segs: &[u32], stop_idx: &[u32], circle: bool) -> Vec<bool> {
+        self.run_passes_from(segs, stop_idx, circle, None)
+    }
+    /// `run_passes` for a run of an open line whose train comes to its first stop over `came` (the other run's last
+    /// path entry): it arrives there on that track, which is the one it leaves by only where it turns back.
+    pub fn run_passes_from(&self, segs: &[u32], stop_idx: &[u32], circle: bool, came: Option<u32>) -> Vec<bool> {
         let node_at = |k: usize| if k == 0 { self.path_nodes(segs[0]).0 } else { self.path_nodes(segs[k - 1]).1 };
         let arrive = |p: u32| self.port_side(path_edge(p), 1 - path_dir(p));
         stop_idx.iter().map(|&k| {
             let k = k as usize;
             let Some(want) = self.one_side(node_at(k)) else { return false };
-            let side = if k > 0 { arrive(segs[k - 1]) } else if circle { segs.last().and_then(|&p| arrive(p)) } else { self.port_side(path_edge(segs[0]), path_dir(segs[0])) };
+            let side = if k > 0 { arrive(segs[k - 1]) } else if circle { segs.last().and_then(|&p| arrive(p)) } else if let Some(c) = came { arrive(c) } else { self.port_side(path_edge(segs[0]), path_dir(segs[0])) };
             side != Some(want)
         }).collect()
     }

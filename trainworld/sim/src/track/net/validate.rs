@@ -194,12 +194,12 @@ impl Network {
         if let Some(r) = self.line_ferry.get(l as usize).and_then(|f| f.as_ref()) {
             return super::ferry::check(self, l, self.line_stops(l), r).map(|_| vec![]);
         }
-        self.check_route(l, self.line_stops(l), self.line_path(l), self.line_runs_once(l))
+        self.check_route(l, self.line_stops(l), self.line_path(l), self.line_runs_once(l), self.line_no_turn_of(l))
     }
 
     /// `check_line` for a rail line's stops and path not yet on a line (`once`: it runs its path once
     /// round, one way); `l` names the line in the issue (T-3333: a twin is checked before it is made).
-    pub fn check_route(&self, l: u32, stops: &[u32], path: &[u32], once: bool) -> Result<Vec<u32>, Issue> {
+    pub fn check_route(&self, l: u32, stops: &[u32], path: &[u32], once: bool, no_turn: bool) -> Result<Vec<u32>, Issue> {
         if stops.len() < 2 && path.is_empty() {
             if stops.iter().all(|&s| self.node_ok(s) && self.node_platform[s as usize] > 0) { return Ok(stops.to_vec()); }
             return Err(Issue::LineStops { line: l });
@@ -241,6 +241,15 @@ impl Network {
         if stops.iter().any(|&s| !self.node_ok(s) || self.node_platform[s as usize] == 0) {
             return Err(Issue::LineStops { line: l });
         }
+        // trams that cannot reverse take no turn back partway: at a stop or at a bare track end
+        if no_turn && !self.path_reversals(path).is_empty() {
+            return Err(Issue::LinePath { line: l });
+        }
+        // nor at a loop's first stop (a balloon turns back there)
+        let closed = stops.len() >= 3 && stops[0] == stops[stops.len() - 1];
+        if no_turn && closed && self.turns_back(path[path.len() - 1], path[0]) {
+            return Err(Issue::NoTurnEnd { line: l });
+        }
         let turns = self.stop_reversals(path);
         let ones = self.line_ones(l);
         let Some((at, _)) = self.match_run(&nodes, stops, &turns, ones, path) else {
@@ -249,11 +258,19 @@ impl Network {
         // the return run goes round one-way track when the path back is against it (T-3094), and each
         // run stops at the platform on its own track (T-3348)
         let back = if once { None } else {
-            match self.back_run_of(stops, path, ones) {
+            match self.back_run_of_nt(stops, path, ones, no_turn) {
                 Some(b) => Some(b),
                 None => return Err(Issue::NoWayBack { line: l }),
             }
         };
+        // nor at an open line's ends, where the way back starts and the way out starts again
+        if no_turn && !closed {
+            if let Some((_, b)) = back.as_ref().filter(|b| !b.1.is_empty()) {
+                if self.turns_back(path[path.len() - 1], b[0]) || self.turns_back(b[b.len() - 1], path[0]) {
+                    return Err(Issue::NoTurnEnd { line: l });
+                }
+            }
+        }
         let fwd = self.fwd_stops_of(stops, path, ones);
         let one = |s: &[u32]| s.iter().any(|&s| self.one_side(s).is_some());
         if one(stops) || one(&fwd) || back.as_ref().is_some_and(|b| one(&b.0)) {
@@ -270,12 +287,13 @@ impl Network {
     pub(super) fn check_one_track(&self, l: u32, stops: &[u32], path: &[u32], at: &[usize], back: Option<(&[u32], &[u32])>) -> Result<(), Issue> {
         let circle = self.loop_kind(stops, path) == LoopKind::Circle;
         let idx: Vec<u32> = at.iter().map(|&k| k as u32).collect();
-        let fwd = self.run_passes(path, &idx, circle);
+        let open = stops.first() != stops.last();
+        let fwd = self.run_passes_from(path, &idx, circle, back.filter(|_| open).and_then(|b| b.1.last().copied()));
         let rev = match back {
             Some((rs, b)) => {
                 let nodes: Vec<u32> = std::iter::once(self.path_nodes(b[0]).0).chain(b.iter().map(|&p| self.path_nodes(p).1)).collect();
                 let ra = self.match_run(&nodes, rs, &self.stop_reversals(b), self.line_ones(l), b).map(|m| m.0).ok_or(Issue::LinePath { line: l })?;
-                let mut r = self.run_passes(b, &ra.into_iter().map(|k| k as u32).collect::<Vec<_>>(), circle);
+                let mut r = self.run_passes_from(b, &ra.into_iter().map(|k| k as u32).collect::<Vec<_>>(), circle, path.last().copied().filter(|_| open));
                 r.reverse();
                 Some(r)
             }

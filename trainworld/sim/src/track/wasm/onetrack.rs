@@ -127,6 +127,7 @@ impl TrackApi {
         if p.n != 2 || p.side[0] == p.side[1] {
             return false;
         }
+        // never where single track meets double: the same tracks both sides
         let (e0, e1) = (p.end[0] >> 1, p.end[1] >> 1);
         let t = net.edge_tracks[e0 as usize];
         t == net.edge_tracks[e1 as usize] && (t == 1 || t == 2)

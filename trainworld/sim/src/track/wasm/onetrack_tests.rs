@@ -369,3 +369,77 @@ fn trams_pass_and_turn_at_a_stop_as_trains_do() {
     }
     assert_eq!(counts, vec![2, 1], "a passing stop cuts the single track in two, one with no loop runs it on");
 }
+
+/// A balloon terminus: a station on double track with a loop at the end of it. A line drops riders at the
+/// eastbound platform, goes round the loop and picks them up at the westbound one: two one-track
+/// stations either side of the stem, a complex, a balloon back to the line's first stop.
+fn terminus_with_loop() -> (crate::track::world::TrackWorld, [u32; 5]) {
+    use crate::track::tests::{edge, node, station, terminals_at_dead_ends, world};
+    let mut w = world();
+    let a = node(&mut w, -3000.0, 0.0, 0);
+    let drop = node(&mut w, 0.0, 0.0, 0);
+    let pick = node(&mut w, 500.0, 0.0, 0);
+    let j = node(&mut w, 3000.0, 0.0, 0);
+    let k = node(&mut w, 5000.0, 1500.0, 0);
+    edge(&mut w, a, drop, &[], 0).unwrap();
+    edge(&mut w, drop, pick, &[], 0).unwrap();
+    edge(&mut w, pick, j, &[], 0).unwrap();
+    edge(&mut w, j, k, &[(3400.0, 0.0)], 0).unwrap();
+    edge(&mut w, k, j, &[(6600.0, 3000.0), (8000.0, -1500.0), (3800.0, 0.0)], 0).unwrap();
+    for n in [a, drop, pick] {
+        station(&mut w, n, 200);
+    }
+    for (n, one) in [(drop, 1), (pick, 2)] {
+        let mut d = w.net.station_data(n).unwrap();
+        d.one = one;
+        w.apply(Op::Station { node: n, data: Some(d) }).unwrap();
+    }
+    terminals_at_dead_ends(&mut w);
+    (w, [a, drop, pick, j, k])
+}
+
+#[test]
+fn a_balloon_terminus_drops_off_on_one_platform_and_picks_up_on_the_other() {
+    use crate::track::tests::line;
+    let (mut w, [a, drop, pick, ..]) = terminus_with_loop();
+    assert_eq!(w.net.one_side(drop), Some(1), "eastbound platform");
+    assert_eq!(w.net.one_side(pick), Some(0), "westbound platform");
+    let l = line(&mut w, &[a, drop, pick, a], [12.0, 6.0, 3.0]);
+    assert_eq!(w.net.check_line(l).map(|_| ()), Ok(()));
+    assert_eq!(w.net.line_loop(l), crate::track::net::LoopKind::Balloon);
+    let ls = &w.svc.lines[l as usize];
+    assert!(ls.ok && ls.running);
+    for r in 0..2 {
+        assert_eq!(ls.runs[r].stop_idx.len(), 4);
+    }
+    assert!(ls.runs[0].pass.is_empty(), "run 0 stands at both platforms on their tracks");
+}
+
+/// A one-track station is refused where single track meets double: there are not the same tracks both sides.
+#[test]
+fn no_one_track_station_where_single_track_meets_double() {
+    let mut a = TrackApi::new(-73.985, 40.758, true);
+    a.set_cash(1e7);
+    assert_eq!(a.add_route(&[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3000.0, 0.0, 0.0], &[], 2, false), 0, "{}", a.issues());
+    let m = (0..a.w.net.node_count() as u32).find(|&n| a.w.net.node_ok(n) && (a.w.net.node_x[n as usize] - 3000.0).abs() < 1.0).unwrap();
+    assert_eq!(a.add_route(&[1.0, m as f64, 0.0, 0.0, 0.0, 0.0, 0.0, 6000.0, 0.0, 0.0], &[], 1, false), 0, "{}", a.issues());
+    a.set_station_one(&[3000.0, -10.0]);
+    assert_ne!(a.add_station(1, m, 3000.0, 0.0, 200, "Meet".into()), 0);
+    assert_eq!(a.issue_kinds(), "OneTrackHere");
+}
+
+/// A balloon terminus built a click at a time: out to the set-down platform, then the pick-up one. The way to
+/// it goes round the loop, so the line ends arriving on the pick-up platform's track, and comes back from it.
+#[test]
+fn a_balloon_terminus_is_built_stop_by_stop() {
+    let (w, [a, drop, pick, ..]) = terminus_with_loop();
+    let mut x = TrackApi::new(-73.985, 40.758, true);
+    x.set_cash(1e9);
+    x.w = w;
+    let l = crate::track::tests::line(&mut x.w, &[a, drop], [8.0, 4.0, 2.0]);
+    let ins: Vec<u32> = x.insert_stop(l, pick).iter().map(|&v| v as u32).collect();
+    assert_eq!(ins, vec![a, drop, pick]);
+    assert_eq!(x.set_line_with_trains(l, &ins, 4, 2, 0, 30.0, 180.0, 0, 0, "L".into()), 0, "{}", x.issue_kinds());
+    assert!(x.w.svc.lines[l as usize].running);
+    assert!(x.w.net.path_reversals(x.w.net.line_path(l)).is_empty(), "round the loop to the pick-up platform");
+}
