@@ -320,18 +320,22 @@ Full design, numbers and sources: `notes/T-008.md`.
   (section = `edge_section_s` + v / `SIGNAL_BRAKE`, per direction, `capacity::directed`), not shared.
   Platforms and stations on it are unchanged. The map draws chevrons along it (`oneWayTrackRuns`, one every 300 m of distance along a connected run),
   the hover says "One way".
-- **Trams that cannot reverse** (`LineData::no_turn`, `Network::line_no_turn_of`; the line inspector's "Cannot
-  reverse", `TrackApi::set_line_no_turn`): trams with a cab at one end only cannot turn round at a stop, so they turn round on a loop of
-  track. A line with it routes with `find_path_nt` / `route_hops_from`: no leaving a stop on the side the
-  train arrived at, no turning back at a bare track end, so the way round is a loop. `check_route`
-  refuses a path that turns back partway (`path_reversals`), and the way back (`back_path_of_nt`) leaves
-  the last stop on the side the way out arrived at. A line's ends turn on loops through the existing
-  "turn this end into a loop" tool (`turn_end`, either end). An end that still turns back (an open line's,
-  where its way back starts or the way out starts again, or a balloon's first stop) is refused `NoTurnEnd`,
-  and the way back is never the way out run backward. Turning it on re-routes the line only when its route
-  turns partway (a hand-drawn route that does not is kept), and is refused (`LinePath`) when no route avoids
-  a turn. The switch shows on tram lines.
-  Saved in the `LNT1` block (save level 42); a line without it reverses as before. Rail lines only.
+- **Trams that cannot reverse** (`LineData::no_turn`, `Network::line_no_turn_of`; the line inspector's
+  "Cannot reverse" / "Can reverse" choice, `TrackApi::set_line_no_turn`): the choice is shown for tram lines
+  (not buses or ferries). It models a tram with a driving cab at one end only. In the default **Can reverse**
+  mode, the return run may retrace the outbound track and turn back at a stop or bare track end. In **Cannot
+  reverse**, the tram never turns back: `find_path_nt` / `route_hops_from` leave each stop on the side opposite
+  the one the tram arrived on, and `back_path_of_nt` finds the return run by continuing forward around track
+  loops, never by reversing the outbound run. The choice is separate from a loop's One way / Both ways setting.
+  Turning **Cannot reverse** on keeps the existing route if it has no mid-route reversals (Izmir's T3A ring is
+  an example); otherwise the worker tries to reroute it to avoid those reversals. It refuses `LinePath` when
+  no such route can be found. Both ends must also turn around loops: an open-line end, or the first stop of a
+  balloon, that still turns back is refused as `NoTurnEnd`. Use the line's existing "turn this end into a loop"
+  tool (`turn_end`) at either end to make the route valid. Turning the choice back to **Can reverse** is allowed
+  on the tram line and leaves its current path in place; it can reverse there if the path calls for it, but the
+  switch does not automatically redraw a route that was previously changed. The line stamp includes this flag,
+  so a successful choice-only edit refreshes the inspector even when the route and timings do not change.
+  Saved in the `LNT1` block (save level 42); a line without it reverses as before.
 - **Quad track** (T-255): the other setting. The stroke draws the double track as usual and an
   express double track beside it, 8 m to the left of the drawn direction (centre to centre, so
   4 m between every pair of neighbouring tracks), from the same start node to the same end node:

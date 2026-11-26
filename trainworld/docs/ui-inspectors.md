@@ -565,6 +565,31 @@ The round trip split into running, dwell, turning and waiting,
   the end" for a balloon; its average speed is once round over the lap (a balloon's less its
   turning); run both ways, its trains steppers move by 2 and the count's hover says how many run each way; the
   stop count under the name counts the first stop once.
+  A **tram line** also has a Turning row: **Cannot reverse** and **Can reverse** are both shown and
+  selectable; this is distinct from a loop's One way / Both ways Direction row. Can reverse is the
+  ordinary mode and leaves the route as drawn. Cannot reverse means the tram runs forward only and
+  follows loops to get from one run to the other. Turning it on keeps a route that already has no
+  mid-route U-turns (so a valid ring such as Izmir T3A can change the selected option with no timing
+  change); when a route does reverse partway, the worker tries to find a route without those reversals.
+  When a return run exists, the edit is accepted only if it can continue around loops at the line's
+  ends instead of turning back at stops or bare track ends; a closed circle must also continue through
+  its first stop.
+  If no route satisfies those rules, the edit is refused and Can reverse remains selected. Turning
+  Cannot reverse off is allowed on a tram line and keeps the current route; it permits reversals but
+  does not automatically redraw the line. The line view refreshes after a successful toggle even when
+  the route, round trip and running times are unchanged.
+  The screenshots below use the same two-stop tram line in the London sandbox. On this route the
+  mode change also changes the return path: Cannot reverse gives an 18m06s round trip; Can reverse
+  gives 12m35s. A ring such as T3A can instead change mode without changing its route or timings.
+
+  **Cannot reverse** (18m06s):
+
+  ![London sandbox line with Cannot reverse selected and its 18m06s round trip](images/no-reverse-london-cannot-reverse.png)
+
+  **Can reverse** (12m35s):
+
+  ![London sandbox line with Can reverse selected and its 12m35s round trip](images/no-reverse-london-can-reverse.png)
+
   **Top speed** [T-2987]: a rail line's panel has, under the round trip block and above the line improvements, a
   "Top speed" row with the fastest its trains reach on the route (the most of `line_stretch_speeds`' reached
   figures) and a mini "Limit" toggle beside it. On, a "Speed limit" row appears with a stepper (steps of 10 km/h,

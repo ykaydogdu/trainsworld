@@ -297,3 +297,22 @@ fn a_station_on_a_lines_track_moves_its_runs_only_around_it() {
     let spans = a.take_moved_spans();
     assert!(spans.chunks(6).all(|s| moved.contains(&(s[0] as u32))), "{spans:?} of {moved:?}");
 }
+
+/// Whether a tram line's trams can reverse is read into its row (stateRows' `noTurn`), so it is part of the line's
+/// stamp: turning it on where neither run moves (Izmir's T3A, a ring whose runs never turned) still lists the line,
+/// or the panel goes on showing the setting as it was.
+#[test]
+fn the_no_reverse_setting_moves_the_stamp() {
+    let (w, ns) = crate::track::tests::ring_fixture();
+    let mut a = TrackApi::new(-73.985, 40.758, true);
+    a.w = w;
+    let mut stops = ns.clone();
+    stops.push(ns[0]);
+    let l = crate::track::tests::line(&mut a.w, &stops, [8.0, 4.0, 2.0]);
+    let stamp = |a: &TrackApi| a.stamped(vec![l], &mut None).1[0].1.expect("a live line");
+    let before = stamp(&a);
+    // the flag alone, the service as it was
+    a.w.net.line_no_turn[l as usize] = true;
+    assert!(a.line_no_turn(l));
+    assert_ne!(stamp(&a), before);
+}

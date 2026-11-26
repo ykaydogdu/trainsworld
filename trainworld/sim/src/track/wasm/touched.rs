@@ -101,7 +101,7 @@ impl TrackApi {
         s!(outer, self.back_stamp(l), self.line_back_stops(l), self.stop_times(l, 0, 0), self.stop_times(l, 0, 1), self.stop_times(l, 0, 2),
             self.line_stop_s(l, 0), self.line_stop_s(l, 1), self.line_stretch_speeds(l), self.passed_stations(l), self.line_reversals(l),
             self.line_end_turns(l), self.line_stop_ways(l), self.line_one_stops(l), self.line_stop_only(l), self.line_hand(l), self.line_auto(l),
-            self.line_fast(l), self.line_tram(l), self.line_loop(l), self.line_one_way(l), self.line_one_way_by_track(l), self.line_limit(l),
+            self.line_fast(l), self.line_tram(l), self.line_loop(l), self.line_one_way(l), self.line_one_way_by_track(l), self.line_no_turn(l), self.line_limit(l),
             self.line_fare_dist(l), self.line_weekend_in(l, most), self.line_tph_rest(l), self.line_shift(l), self.line_period_count(l), self.line_periods_own(l),
             self.line_tph_by_period(l), self.line_hours(l), self.line_hours_own(l), self.line_row_headways(l), self.line_rows(l), self.line_row_trains(l),
             self.line_row_weekend_in(l, most), self.line_pairs(l), self.line_twin_of(l));
