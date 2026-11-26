@@ -67,6 +67,7 @@ const TEXT: Record<string, () => string> = {
   "NoSingle:Flyover": () => t("issues.singleFlyover"),
   // T-3332: one-track stations
   NoWayBack: () => t("issues.noWayBack"),
+  NoTurnEnd: () => t("issues.noTurnEnd"),
   OneTrackStop: () => t("issues.oneTrackStop"),
   OneTrackHere: () => t("issues.oneTrackHere"),
   TramTrack: () => t("issues.tramTrack"), // T-3889

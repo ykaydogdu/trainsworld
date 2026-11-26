@@ -714,6 +714,7 @@ function toWorld(s: ClockState, keep = true, step?: RowStep | null): WorldView {
       loop: l.loopKind === 1 ? "circle" : l.loopKind === 2 ? "balloon" : null, // i18n-ignore
       oneWay: l.oneWay,
       ...(l.oneWayByTrack ? { oneWayByTrack: true as const } : {}),
+      noTurn: l.noTurn,
       limit: l.limit,
       ...(l.fareDist ? { fareDist: true as const } : {}),
       ...(l.weekend ? { weekend: l.weekend } : {}),

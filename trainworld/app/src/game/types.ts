@@ -285,6 +285,8 @@ export interface LineStats {
   oneWay: boolean;
   /** T-3835: set both ways, it runs one way, as one-way track takes it round only one way */
   oneWayByTrack?: true;
+  /** the line's trams cannot reverse: it turns round on loops, never partway */
+  noTurn: boolean;
   /** T-2987: the player's speed limit for the line's trains, km/h; 0 for none */
   limit: number;
   /** T-3758: its rides pay the distance fare where the game has fare zones; absent: zone fares */

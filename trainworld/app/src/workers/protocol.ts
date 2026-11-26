@@ -223,6 +223,8 @@ export type EditOp =
   | { op: "lineCars"; line: number; cars: number }
   | { op: "lineFast"; line: number; fast: boolean }
   | { op: "lineOneWay"; line: number; oneWay: boolean }
+  /** trams of the line cannot reverse, so it turns round on loops (`TrackApi::set_line_no_turn`) */
+  | { op: "lineNoTurn"; line: number; noTurn: boolean }
   /** T-3333: run the line's trains on both pairs of quad track, or on one */
   | { op: "linePairs"; line: number; on: boolean }
   /** T-2987: a rail line's speed limit in km/h, 0 for none */
@@ -748,6 +750,8 @@ export interface ClockLine {
   oneWay: boolean;
   /** T-3835: set both ways, it runs one way as one-way track takes it round (`TrackApi::line_one_way_by_track`) */
   oneWayByTrack: boolean;
+  /** the line's trams cannot reverse (`TrackApi::line_no_turn`) */
+  noTurn: boolean;
   /** T-2987: the line's speed limit, km/h; 0 for none (`TrackApi::line_limit`) */
   limit: number;
   /** T-3758: its rides pay the distance fare where the game has fare zones (`TrackApi::line_fare_dist`); absent:

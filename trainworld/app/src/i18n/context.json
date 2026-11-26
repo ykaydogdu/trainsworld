@@ -1,4 +1,5 @@
 {
+  "issues.noTurnEnd": "Refusal when a line whose trams cannot reverse would still turn back at one of its ends: each end needs a loop of track to turn round on.",
   "blueprint.lengthLevelBusway": "Build tab blueprint row: the length of off-road busway (T-3378, a road for buses only, drawn with the track tool) at a level, e.g. \"3.2 km busway, ground level (0)\".",
   "issues.buswayJoin": "Refusal when track drawn would join a busway (a road for buses only, T-3378) to train or tram track: a busway joins only other busways.",
   "issues.buswayStation": "Refusal when a train or tram station would be placed on a busway (a road for buses only); BRT stations are a separate kind of station placed beside a road or busway.",

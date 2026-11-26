@@ -220,6 +220,16 @@ export function RoundTrip({ num, st, lev, stops, spots: { spots: busy, behindSpo
             />
           </li>
         )}
+        {st.tram && !st.bus && (
+          <li>
+            <span class="grow">{tr("lineInspector.turning")}</span>
+            <Segmented<boolean>
+              options={[[true, <span data-tip={tr("lineInspector.cannotReverseTip")}>{tr("lineInspector.cannotReverse")}</span>], [false, tr("lineInspector.canReverse")]]}
+              value={st.noTurn}
+              onChange={(noTurn) => { if (noTurn !== st.noTurn) void edit({ op: "lineNoTurn", line: num, noTurn }); }}
+            />
+          </li>
+        )}
         <Row label={tr(st.loop ? "lineInspector.lap" : "lineInspector.roundTrip")} bold>
           {duration(total)}
         </Row>
