@@ -708,6 +708,7 @@ function toWorld(s: ClockState, keep = true, step?: RowStep | null): WorldView {
       endTurns: l.endTurns,
       oneWayAt: Object.fromEntries(Array.from({ length: l.ways.length >> 1 }, (_, k) => [String(l.ways[2 * k]), l.ways[2 * k + 1]])),
       ...(l.backStops?.length ? { backStops: l.backStops.map(String) } : {}),
+      ...(l.stopRuns?.some((r) => r !== 3) ? { stopRuns: l.stopRuns } : {}),
       ...(l.oneStops?.length ? { oneStops: l.oneStops.map(String) } : {}),
       ...(l.stopOnly?.length ? { stopOnly: Object.fromEntries(Array.from({ length: l.stopOnly.length >> 1 }, (_, k) => [String(l.stopOnly![2 * k]), l.stopOnly![2 * k + 1] as StopOnly])) } : {}),
       hand: l.hand,

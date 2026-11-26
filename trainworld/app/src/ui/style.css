@@ -1117,6 +1117,56 @@ rect.now { fill-opacity: .45; }
 /* T-3025: a turned line's loop, a bend at the side of the straight strip, leaving the station it turns at and
    coming back in at the loop's last station; the strip is shifted right to make room for it */
 .stops.turned, .turned-rel { margin-left: 12px; }
+/* a ring: one rounded track round the stops, its right side the bar; chevrons on its left side the way round */
+.stops.ring { position: relative; margin-left: 14px; }
+.stops.ring::before { content: ""; position: absolute; left: -7px; top: 2px; bottom: 2px; width: 8px; border: 6px solid var(--c); border-radius: 13px;
+  transform: translateX(var(--soft)); pointer-events: none; }
+.stops.ring li.loop-end::before, .stops.ring.traffic li.loop-end::before { display: none; }
+.stops.ring-up::after, .stops.ring-down::after { content: ""; position: absolute; left: -7px; top: 22px; bottom: 22px; width: 6px; pointer-events: none;
+  transform: translateX(var(--soft)); background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='36'%3E%3Cpath d='M1 20l2-2 2 2' fill='none' stroke='white' stroke-width='1.6'/%3E%3C/svg%3E") repeat-y center / 6px 36px; }
+.stops.ring-down::after { transform: translateX(var(--soft)) scaleY(-1); }
+/* a balloon: the bar's end past the last (or first) row goes round a loop */
+.stops.turned li.loop-end.bottom { height: 24px; }
+.stops.turned li.loop-end.top { height: 24px; }
+.stops.turned li.loop-end::before { left: 1px; width: 6px; height: 6px; border: 6px solid var(--c); border-radius: 50%; }
+.stops.turned li.loop-end.bottom::before { top: 0; bottom: auto; }
+.stops.turned li.loop-end.top::before { top: auto; bottom: 0; }
+/* one-way branches as two lanes beside each other, a row per stop: the way out's dots on the bar, the way back's on
+   a lane 14px to its right that forks off the bar and joins it again, or the two meet round a loop at an end */
+.stops.lanes li, .stops.branch li { padding-left: 40px; }
+.stops li.branches { display: block; padding-left: 0; min-height: 0; }
+.stops li.branches::before, .stops li.branches::after { display: none; }
+.stops li.branches > ul.branch { padding: 10px 0; }
+.stops li.branches.top-open > ul.branch { padding-top: 0; }
+.stops li.branches.bottom-open > ul.branch { padding-bottom: 0; }
+.stops.branch li::before { display: none; }
+.stops li.lane-r::after { left: 24px; }
+.stops li.lane-r .stop-hit { left: 14px; }
+.stops .b-bar { position: absolute; width: 6px; top: 0; bottom: 0; background: var(--c); transform: translateX(var(--soft)); pointer-events: none; }
+.stops .b-bar.l { left: 7px; }
+.stops .b-bar.r { left: 21px; top: 8px; bottom: 8px; }
+.stops li.branches.top-open .b-bar.r { top: 0; }
+.stops li.branches.bottom-open .b-bar.r { bottom: 0; }
+.stops li.branches.top-loop .b-bar.l { top: 8px; }
+.stops li.branches.bottom-loop .b-bar.l { bottom: 8px; }
+.stops .b-cap { position: absolute; left: 7px; width: 20px; height: 12px; box-sizing: border-box; border: 0 solid var(--c); border-right-width: 6px;
+  transform: translateX(var(--soft)); pointer-events: none; }
+.stops .b-cap.top { top: 0; border-top-width: 6px; border-top-right-radius: 8px; }
+.stops .b-cap.bottom { bottom: 0; border-bottom-width: 6px; border-bottom-right-radius: 8px; }
+.stops .b-cap.loop { border-left-width: 6px; }
+.stops .b-cap.top.loop { border-top-left-radius: 8px; }
+.stops .b-cap.bottom.loop { border-bottom-left-radius: 8px; }
+.stops .b-dir { position: absolute; width: 6px; height: 6px; border-top: 2px solid #fff; border-left: 2px solid #fff; box-sizing: border-box; pointer-events: none; z-index: 1; }
+.stops .b-dir.l { left: 7px; top: 3px; }
+.stops .b-dir.r { left: 21px; bottom: 3px; }
+.stops li.branches.top-open .b-dir.l { top: 1px; }
+.stops li.branches.bottom-open .b-dir.r { bottom: 1px; }
+.stops .b-dir.up { transform: translateX(var(--soft)) translateY(1px) rotate(45deg); }
+.stops .b-dir.down { transform: translateX(var(--soft)) translateY(-1px) rotate(225deg); }
+.line-form { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 0 2px; }
+.line-form svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.line-form .shape-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.line-form .shape-actions .btn svg { margin-right: 3px; }
 .stops.related-rows .arc { left: calc(var(--spine) - 17px); }
 .stops.related-rows .arc.start, .stops.related-rows .arc.end { width: 17px; }
 .stops.related-rows .dir { left: calc(var(--spine) - 16.5px); }

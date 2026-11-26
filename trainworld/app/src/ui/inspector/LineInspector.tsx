@@ -42,7 +42,7 @@ import { demandView } from "../../game/demand";
 import { useClockQuery } from "../useClockQuery";
 import type { Vehicle } from "../../game/vehicle";
 import { drawnReversed } from "../../game/northUp";
-import { partwayReversals, turnedLine, type TurnRow } from "../../game/turnedLine";
+import { partwayReversals, turnedLine, type TurnedLine, type TurnRow } from "../../game/turnedLine";
 import { ScheduleButton } from "./SchedulePanel";
 import { LineProfile } from "./LineProfile";
 import { LineTopSpeed } from "./LineTopSpeed";
@@ -371,12 +371,144 @@ export function StopToday({ line, i }: { line: string; i: number | number[] }) {
   return <span class="n num" data-tip={d ? tr("stationInspector.boardings24", { count: count(n) }) : undefined}>{d ? count(n) : ""}</span>;
 }
 
-/** The plain stops strip; a loop's bar goes on past its ends and curves round (T-1391). */
-function PlainStops({ looks, colour, loop, ends, order, onDblClick, children }: { looks: boolean; colour: string; loop: boolean; ends?: [boolean, boolean]; order: string; onDblClick: (e: MouseEvent) => void; children: ComponentChildren }) {
+/** One piece of a split line's strip, in the order drawn: a stop's row, or one-way branches side by side. */
+type Piece = { row: number } | Branches;
+
+/** One-way branches drawn as two lanes beside each other, every stop a row of its own (`order`, as drawn), its dot on
+ * its lane: the way out's on the left (the bar), the way back's on the right. At the top the right lane forks off the
+ * bar (`fork`), or the two meet round a loop (`loop`: the end of the line its trains carry on round from), or the
+ * strip starts there (`open`); at the bottom likewise, `join` for the fork. `down`: the way out runs down as drawn. */
+interface Branches { left: number[]; right: number[]; order: number[]; top: "fork" | "loop" | "open"; bottom: "join" | "loop" | "open"; down: boolean }
+
+/**
+ * A line with one-way branches (`LineStats.stopRuns`: 1 the way out stands there, 2 the way back, 3 both) as the
+ * strip draws it: a block of stops served one way only is the branches, forking off the bar at the stop before and
+ * joining it at the stop after. An end its trains carry on round a loop from (`capTop`, `capBottom`, as drawn)
+ * next to a block is on the loop's far side: it goes in the right column and the columns meet round the loop
+ * there (a balloon terminus: set down on the left, round the loop, pick up on the right). Null when every stop is
+ * served both ways. `flip`: the list is drawn last stop first.
+ */
+function stripPieces(runs: readonly number[] | undefined, n: number, flip: boolean, capTop: boolean, capBottom: boolean): Piece[] | null {
+  if (!runs || runs.length !== n || runs.every((r) => r === 3)) return null;
+  const order = Array.from({ length: n }, (_, k) => (flip ? n - 1 - k : k));
+  const out: Piece[] = [];
+  for (let k = 0; k < n; k++) {
+    if (runs[order[k]] === 3) {
+      out.push({ row: order[k] });
+      continue;
+    }
+    let e = k;
+    while (e + 1 < n && runs[order[e + 1]] !== 3) e++;
+    const block = order.slice(k, e + 1);
+    const p: Branches = { left: block.filter((i) => runs[i] === 1), right: block.filter((i) => runs[i] === 2), order: [...block], top: k > 0 ? "fork" : "open", bottom: e + 1 < n ? "join" : "open", down: !flip };
+    if (k === 1 && capTop) {
+      out.pop();
+      p.right.unshift(order[0]);
+      p.order.unshift(order[0]);
+      p.top = "loop";
+    }
+    if (e + 2 === n && capBottom) {
+      p.right.push(order[n - 1]);
+      p.order.push(order[n - 1]);
+      p.bottom = "loop";
+      e = n - 1;
+    }
+    out.push(p);
+    k = e;
+  }
+  return out;
+}
+
+/**
+ * A line turned round a loop of track with stations on it (`turnedLine`'s bends) as the strip draws it: the loop's
+ * stations side by side, the first half down the left column and the rest up the right, the columns meeting round
+ * the loop at the end; the station the loop leaves from is a row of the stem. A loop above the stem (T-3050) the
+ * same way up. Null when the loops have no stations (the bar's end is drawn as a loop then).
+ */
+function turnedPieces(t: TurnedLine): Piece[] | null {
+  const rows = t.rows;
+  if (!rows.some((r) => r.arc)) return null;
+  const halves = (loop: TurnRow[]) => {
+    const k = Math.ceil(loop.length / 2);
+    const left = loop.slice(0, k).map((r) => r.i), right = loop.slice(k).reverse().map((r) => r.i);
+    // down the left lane, then back up the right one
+    return { left, right, order: [...left, ...[...right].reverse()] };
+  };
+  const out: Piece[] = [];
+  for (let u = 0; u < rows.length; u++) {
+    if (rows[u].arc !== "start") {
+      out.push({ row: rows[u].i });
+      continue;
+    }
+    let e = u;
+    while (e + 1 < rows.length && rows[e + 1].arc && rows[e + 1].arc !== "start") {
+      e++;
+      if (rows[e].arc === "end") break;
+    }
+    if (u === 0 && t.topLoop) {
+      // the loop's stations, then the stem's station it joins
+      out.push({ ...halves(rows.slice(u, e)), top: "loop", bottom: "join", down: true });
+      out.push({ row: rows[e].i });
+    } else {
+      out.push({ row: rows[u].i });
+      out.push({ ...halves(rows.slice(u + 1, e + 1)), top: "fork", bottom: "loop", down: true });
+    }
+    u = e;
+  }
+  return out;
+}
+
+/** The worker's ring and loop offers for a line (`lineLoops`, `TrackApi::line_loop_options`): whether it can close
+ * into a ring, the stop where a turned end opens again, which ends of an open line its trains carry on round a
+ * loop from without reversing (1 the first, 2 the last), and the stops past which an end turns round a loop. */
+interface LoopOptions { close: boolean; unturn: string | null; ends: number; turns: string[] }
+
+function useLoopOptions(l: LineInput | undefined, bus: boolean, version: number): LoopOptions | null {
+  const w = world.value;
+  return useClockQuery(!l || bus ? null : { what: "lineLoops", line: l.num }, [l?.num, version], (d): LoopOptions => {
+    const byNum = w ? stationsByNum(w) : null;
+    const id = (n: number) => byNum?.get(n)?.id ?? String(n);
+    return { close: d[0] === 1, unturn: d.length > 1 && d[1] >= 0 ? id(d[1]) : null, ends: d[2] ?? 0, turns: [...new Set(Array.from(d.slice(3), id))] };
+  });
+}
+
+/**
+ * The edits that change the line's shape over the track: close it into a ring, open the ring, open a loop an end
+ * was turned round (`openLoop`). The worker says which apply (`lineLoops`).
+ * Trams that cannot reverse on a line still open at an end are told to turn its ends round loops. Nothing when none apply.
+ */
+function LineShape({ l, st, turned, opts, name, canEdit, onEdit, onClose }: {
+  l: LineInput; st: LineStats; turned: ReturnType<typeof turnedLine>; opts: LoopOptions | null; name: Map<string, string>; canEdit: boolean;
+  onEdit: (op: EditOp) => void; onClose: () => void;
+}) {
+  // an open line whose trains carry on round a loop of track at an end, without reversing
+  const endLoops = !st.loop && opts ? (opts.ends & 1) + (opts.ends >> 1 & 1) : 0;
+  const v = vehicleOf(st);
+  const actions = canEdit && opts ? [
+    ...(opts.close ? [<button class="btn text mini" data-tip={tr("lineInspector.closeRingTip", { vehicle: v })} onClick={onClose}><Icon.ring />{tr("lineInspector.closeRing")}</button>] : []),
+    ...(st.loop === "circle" && !turned ? [<button class="btn text mini" data-tip={tr("lineInspector.openRingTip")} onClick={() => onEdit({ op: "openLoop", line: l.num })}><Icon.cross />{tr("lineInspector.openRing")}</button>] : []),
+    ...(opts.unturn ? [<button class="btn text mini" onClick={() => onEdit({ op: "openLoop", line: l.num })}><Icon.uturn />{tr("lineInspector.openLoopAt", { name: name.get(opts.unturn) ?? "" })}</button>] : []),
+  ] : [];
+  // trams that cannot reverse on a line that is not a loop: each end needs one
+  const needsLoops = st.noTurn && !st.loop && endLoops < 2;
+  if (!needsLoops && !actions.length) return null;
+  return (
+    <div class="line-form">
+      {needsLoops && <span class="small bad">{tr("lineInspector.needsLoops")}</span>}
+      {actions.length > 0 && <span class="shape-actions">{actions}</span>}
+    </div>
+  );
+}
+
+/** The plain stops strip; a loop's bar goes on past its ends and curves round (T-1391). A ring (`ring`) is drawn
+ * as one: the bar past the last stop comes back up beside the stops to the first, with chevrons the way its
+ * trains go round when it runs one way ("up" or "down" the return as drawn). `lanes`: some stops sit on a second lane
+ * beside the bar (one-way branches), so every name starts past it. */
+function PlainStops({ looks, colour, loop, ring, ends, lanes, order, onDblClick, children }: { looks: boolean; colour: string; loop: boolean; ring?: "up" | "down" | "both"; ends?: [boolean, boolean]; lanes?: boolean; order: string; onDblClick: (e: MouseEvent) => void; children: ComponentChildren }) {
   const ul = useRef<HTMLUListElement>(null);
   useTightTimes(ul);
   return (
-    <ul ref={ul} class={"stops" + (looks ? " traffic" : "") + (loop ? " loop" : "") + (ends ? " turned" : "") + order} style={{ "--c": colour }} onDblClick={onDblClick}>
+    <ul ref={ul} class={"stops" + (looks ? " traffic" : "") + (loop ? " loop" : "") + (ring ? " ring ring-" + ring : "") + (ends ? " turned" : "") + (lanes ? " lanes" : "") + order} style={{ "--c": colour }} onDblClick={onDblClick}>
       {(loop || ends?.[0]) && <li class="loop-end top" aria-hidden="true" />}
       {children}
       {(loop || ends?.[1]) && <li class="loop-end bottom" aria-hidden="true" />}
@@ -729,6 +861,8 @@ function RailLineInspector({ id }: { id: string }) {
   // T-1272: the Traffic view draws the stops diagram by load, with the map's crowding marks
   const traffic = display.value.trackColour === "traffic" && !editingStops;
   const crowded = useCrowded(l?.num ?? -1, (l?.stops.length ?? 1) - 1, traffic && display.value.fullMarks);
+  // the ring and loop offers for the shape chip and an open line's balloon ends
+  const loopOpts = useLoopOptions(l, !!w?.lineStats[l?.id ?? ""]?.bus, w?.version ?? 0);
   if (!w || !l) return null;
   const st0 = pairStats(w, w.lineStats[l.id]);
   // T-3542: the round trip and delay at the row now (`lev`)
@@ -835,6 +969,16 @@ function RailLineInspector({ id }: { id: string }) {
   // T-2895: while stops are edited a row drags to a new place in the list (not by touch; in related lines the
   // line's own rows); a loop keeps its first and closing stop where they are. The line then keeps the order.
   const loopEnds = st.loop ? 1 : 0;
+  // an open line's ends its trains carry on round a loop from (a balloon terminus), as drawn: top, bottom
+  const loopAtEnd = (i: number) => !st.loop && !turned && !!loopOpts && ((i === 0 && (loopOpts.ends & 1) !== 0) || (i === nStops - 1 && (loopOpts.ends & 2) !== 0));
+  const tips: [boolean, boolean] | undefined = !st.loop && !turned && loopOpts?.ends ? (flip ? [loopAtEnd(nStops - 1), loopAtEnd(0)] : [loopAtEnd(0), loopAtEnd(nStops - 1)]) : undefined;
+  // one-way branches side by side (the way out's stops left, the way back's right), a loop at an end with stops on it
+  const pieces = turned ? turnedPieces(turned) : !st.loop ? stripPieces(st.stopRuns, nStops, flip, !!tips?.[0], !!tips?.[1]) : null;
+  // a turned line's rows by stop index, their bends drawn by the pieces
+  const rowOf = new Map((turned?.rows ?? []).map((r) => [r.i, { ...r, arc: undefined }] as const));
+  const branchOf = new Map<number, "out" | "back">((st.stopRuns ?? []).flatMap((r, i) => (pieces && r !== 3 ? [[i, r === 1 ? "out" : "back"] as [number, "out" | "back"]] : [])));
+  // a loop the branches meet round is drawn by them
+  const endTips: [boolean, boolean] | undefined = tips && pieces && !turned ? [tips[0] && !pieces.some((p) => "top" in p && p.top === "loop"), tips[1] && !pieces.some((p) => "bottom" in p && p.bottom === "loop")] : tips;
   const canDrag = editingStops && !partly && !turned && nStops >= 3 + 2 * loopEnds;
   const orderWhy = (issues: string[]) => {
     const f = issues.find((k) => k.startsWith("StopOrder:"))?.split(":").map(Number); // i18n-ignore
@@ -936,7 +1080,7 @@ function RailLineInspector({ id }: { id: string }) {
   };
   // T-1168: stop `i`'s row; `drawn` (in the related-lines view) are the lines drawn beside the line
   // there, `bullets` those of them whose bullet shows here
-  const stopRow = (i: number, drawn?: ReadonlySet<number>, bullets?: LineInput[], row?: TurnRow) => {
+  const stopRow = (i: number, drawn?: ReadonlySet<number>, bullets?: LineInput[], row?: TurnRow, rightLane = false) => {
     const s = l.stops[i];
     // T-4178: a turn partway is marked only where it limits the line, with the trains an hour it lets it run
     const revTph = partwayReversals(st).includes(i) ? world.value?.turnLimits.get(l.id)?.get(Number(s)) : undefined;
@@ -960,11 +1104,14 @@ function RailLineInspector({ id }: { id: string }) {
     }
     const dot = dotClick(i, row);
     const only = st.stopOnly?.[s];
+    const branch = row || drawn ? undefined : branchOf.get(i);
+    // the way back's own stop is timed along the way out (which passes it), so its time is left out
+    if (branch === "back") t = undefined;
     return (
-      <li class={(xfer ? "xfer" : "") + (tall ? " tall" : "") + (drag?.from === i ? " dragged" : "") + (!row && loopEnds && (i === 0 || i === nStops - 1) ? " pinned" : "") + (st.oneWayAt?.[s] !== undefined ? " oneway" : "") + dropClass(i)} data-r={drawn ? true : undefined}
+      <li class={(xfer ? "xfer" : "") + (tall ? " tall" : "") + (drag?.from === i ? " dragged" : "") + (!row && loopEnds && (i === 0 || i === nStops - 1) ? " pinned" : "") + (st.oneWayAt?.[s] !== undefined ? " oneway" : "") + (rightLane ? " lane-r" : "") + dropClass(i)} data-r={drawn ? true : undefined}
         data-stop={i} data-station={s} onPointerDown={(e) => rowDown(e, i)} onMouseEnter={() => setListHot({ stations: complexOf(s) })} onMouseLeave={() => setListHot(null)}>
         {row?.arc && <i class={"arc " + row.arc} aria-hidden="true" />}
-        {row?.arc === "end" && <i class="dir" aria-hidden="true" />}
+        {row?.arc === "end" && st.oneWay && <i class="dir" aria-hidden="true" />}
         {looks && !drawn && above >= 0 && looks[above] && <StretchHalf s={looks[above]} down={false} />}
         {looks && !drawn && below >= 0 && looks[below] && <StretchHalf s={looks[below]} down />}
         {dot && <span class="stop-hit" data-tip={dot.tip} onClick={dot.click} />}
@@ -1059,7 +1206,7 @@ function RailLineInspector({ id }: { id: string }) {
       {renaming ? (
         <RenameStops colour={shown} onClose={() => setRenaming(false)}
           order={(turned ? turned.rows.map((row) => row.i) : flip ? l.stops.map((_, k) => nStops - 1 - k) : l.stops.map((_, i) => i)).map((i) => l.stops[i])} />
-      ) : related ? (
+      ) : related && !pieces ? (
         <div class={orderClass + (turned ? " turned-rel" : "")} onDblClick={onListDblClick}>
           <RelatedStops l={l} stopS={st.stopS[0]} colour={shown} loop={loopOnce && !turned} flip={flip} rows={turned?.rows}
             lRow={turned ? (k, drawn, marks) => stopRow(turned.rows[k].i, drawn, marks, turned.rows[k]) : stopRow}
@@ -1067,9 +1214,22 @@ function RailLineInspector({ id }: { id: string }) {
             adder={editingStops ? adder : undefined} onAdd={(node) => void stopEdit({ op: "stopPassed", line: l.num, station: node })}
             transfers={(i, drawn) => (turned ? transferLines(l, turned.rows[i].i, drawn, true) : transferLines(l, i, drawn))} />
         </div>
-      ) : <PlainStops looks={!!looks} colour={shown} loop={loopOnce && !turned} ends={turned ? [turned.tipTop, turned.tipBottom] : undefined} order={orderClass} onDblClick={onListDblClick}>
-        {turned
+      ) : <PlainStops looks={!!looks} colour={shown} loop={loopOnce && !turned} ring={loopOnce && !turned && st.loop === "circle" ? (st.oneWay ? (flip ? "down" : "up") : "both") : undefined}
+        ends={turned ? [turned.tipTop, turned.tipBottom] : endTips} lanes={!!pieces} order={orderClass} onDblClick={onListDblClick}>
+        {turned && !pieces
           ? turned.rows.map((row) => <>{stopRow(row.i, undefined, undefined, row)}{afterStop(row.i, row.arc === "start" || row.arc === "mid")}</>)
+          : pieces
+          ? pieces.map((p) => ("row" in p
+            ? <>{stopRow(p.row, undefined, undefined, rowOf.get(p.row))}{turned ? afterStop(p.row) : flip ? p.row > 0 && afterStop(p.row - 1) : afterStop(p.row)}</>
+            : <li class={"branches top-" + p.top + " bottom-" + p.bottom}>
+              <i class="b-bar l" aria-hidden="true" />
+              <i class="b-bar r" aria-hidden="true" />
+              {p.top !== "open" && <i class={"b-cap top " + p.top} aria-hidden="true" />}
+              {p.bottom !== "open" && <i class={"b-cap bottom " + p.bottom} aria-hidden="true" />}
+              <i class={"b-dir l " + (p.down ? "down" : "up")} aria-hidden="true" />
+              <i class={"b-dir r " + (p.down ? "up" : "down")} aria-hidden="true" />
+              <ul class="stops branch">{p.order.map((i) => stopRow(i, undefined, undefined, rowOf.get(i), p.right.includes(i)))}</ul>
+            </li>))
           : flip
           ? l.stops.map((_, k) => { const i = nStops - 1 - k; return <>{stopRow(i)}{i > 0 && afterStop(i - 1)}</>; })
           : l.stops.map((_, i) => (loopOnce && i === nStops - 1 ? null : <>
@@ -1077,6 +1237,10 @@ function RailLineInspector({ id }: { id: string }) {
             {afterStop(i)}
           </>))}
       </PlainStops>}
+      {!renaming && l.stops.length >= 2 && (
+        <LineShape l={l} st={st} turned={turned} opts={loopOpts} name={name} canEdit={!partly}
+          onEdit={(op) => void stopEdit(op)} onClose={() => void setStops((cur) => (cur.length >= 3 && cur[0] !== cur[cur.length - 1] ? [...cur, cur[0]].map(Number) : null))} />
+      )}
     </>
   );
 

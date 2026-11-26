@@ -1250,6 +1250,7 @@ async function handleMessage(msg: ToClock) {
       q.what === "insertStop" ? api.insert_stop(q.line, q.station)
       : q.what === "clickPath" ? api.click_path(q.line, q.station)
       : q.what === "stopTiers" ? api.stop_tiers(q.line)
+      : q.what === "lineLoops" ? api.line_loop_options(q.line)
       : q.what === "stopGap" ? api.stop_gap(q.line, q.station)
       : q.what === "passedStations" ? api.passed_stations(q.line)
       : q.what === "junction" ? api.junction_info(q.node)

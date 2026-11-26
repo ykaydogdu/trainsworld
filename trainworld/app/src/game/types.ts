@@ -271,6 +271,9 @@ export interface LineStats {
   /** T-3348: the stations the return run stops at, first stop to last, where one is a platform beside
    * the listed stop (`TrackApi::line_back_stops`) */
   backStops?: string[];
+  /** per stop (as `stopS`), the runs standing there: 1 the way out, 2 the way back, 3 both
+   * (`TrackApi::line_stop_runs`); absent when every stop is served both ways */
+  stopRuns?: number[];
   /** T-3711: the stops the player made one way with a shift-click; absent for none */
   oneStops?: string[];
   /** T-4013: the stops where riders only board (1) or only get off (2), by station id (`TrackApi::line_stop_only`);

@@ -45,14 +45,19 @@ export interface TurnedLine {
 }
 
 /**
- * The stops of a one-way closed line read as a stem and the loop at its end: the line goes out over
+ * The stops of a closed line read as a stem and the loop at its end: the line goes out over
  * the stem, round the loop, and back over the stem, so its walk (the stops less the closing one,
  * taken round) turns straight back at the stem's end. Null for any other line (an open line, a
- * ring, a loop run both ways) and for a walk that does not read that way.
+ * ring) and for a walk that does not read that way.
  */
 export function turnedLine(stops: readonly string[], st: Pick<LineStats, "loop" | "oneWay"> & Partial<Pick<LineStats, "reversals">>, topFirst?: (a: string, b: string) => boolean): TurnedLine | null {
+  return turnedOf(stops, st, topFirst);
+}
+
+/** A loop run both ways reads the same: half its trains go round each way, the stem and its loops are the same track. */
+function turnedOf(stops: readonly string[], st: Pick<LineStats, "loop" | "oneWay"> & Partial<Pick<LineStats, "reversals">>, topFirst?: (a: string, b: string) => boolean): TurnedLine | null {
   const n = stops.length;
-  if (!st.loop || !st.oneWay || n < 4 || stops[0] !== stops[n - 1]) return null;
+  if (!st.loop || n < 4 || stops[0] !== stops[n - 1]) return null;
   const c = stops.slice(0, n - 1), m = c.length;
   // T-3099: the stops alone can't tell a loop past a station from a turn back there (an out-and-back
   // list in Exact edits reads as a loop at each end); a station where the trains reverse is never on a loop.

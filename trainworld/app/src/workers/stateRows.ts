@@ -158,6 +158,8 @@ interface Heavy {
   reversals: number[];
   endTurns: number[];
   ways: number[];
+  /** per stop, the runs standing there: 1 the way out, 2 the way back, 3 both (`TrackApi.line_stop_runs`) */
+  stopRuns: number[];
   oneStops: number[];
   /** T-4013: `[station, kind]` pairs (`TrackApi.line_stop_only`) */
   stopOnly: number[];
@@ -1272,6 +1274,7 @@ export class StateRows {
         reversals: heavy.reversals,
         endTurns: heavy.endTurns,
         ways: heavy.ways,
+        stopRuns: heavy.stopRuns,
         oneStops: heavy.oneStops,
         ...(heavy.stopOnly.length ? { stopOnly: heavy.stopOnly } : {}),
         hand: heavy.hand,
@@ -1532,6 +1535,7 @@ export class StateRows {
       reversals: [...a.line_reversals(id)],
       endTurns: [...a.line_end_turns(id)],
       ways: [...a.line_stop_ways(id)],
+      stopRuns: [...a.line_stop_runs(id)],
       oneStops: [...a.line_one_stops(id)],
       stopOnly: [...a.line_stop_only(id)],
       hand: a.line_hand(id),

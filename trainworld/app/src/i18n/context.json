@@ -1,5 +1,11 @@
 {
   "issues.noTurnEnd": "Refusal when a line whose trams cannot reverse would still turn back at one of its ends: each end needs a loop of track to turn round on.",
+  "lineInspector.needsLoops": "Warning beside the shape chip: the line's trams cannot reverse, so both its ends must be turned round loops of track.",
+  "lineInspector.closeRing": "Button in a line view: make the line a ring, running on from its last stop to its first.",
+  "lineInspector.closeRingTip": "Hover on the Close into a ring button.",
+  "lineInspector.openRing": "Button in a line view of a ring: make it an ordinary line ending at its last stop.",
+  "lineInspector.openRingTip": "Hover on the Open the ring button.",
+  "lineInspector.openLoopAt": "Button in a line view: undo turning the line's end round a loop at the named stop.",
   "blueprint.lengthLevelBusway": "Build tab blueprint row: the length of off-road busway (T-3378, a road for buses only, drawn with the track tool) at a level, e.g. \"3.2 km busway, ground level (0)\".",
   "issues.buswayJoin": "Refusal when track drawn would join a busway (a road for buses only, T-3378) to train or tram track: a busway joins only other busways.",
   "issues.buswayStation": "Refusal when a train or tram station would be placed on a busway (a road for buses only); BRT stations are a separate kind of station placed beside a road or busway.",
